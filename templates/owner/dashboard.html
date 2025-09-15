@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}Owner Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-crown me-2"></i>Owner Dashboard</h2>
+    <div class="text-muted">Business Overview & Analytics</div>
+</div>
+
+<!-- Key Metrics Row -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="stat-card bg-primary text-white">
+            <div class="stat-number">${{ "%.2f"|format(today_sales) }}</div>
+            <div class="stat-label">Today's Revenue</div>
+            <i class="fas fa-dollar-sign fa-2x"></i>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card bg-success text-white">
+            <div class="stat-number">${{ "%.2f"|format(month_sales) }}</div>
+            <div class="stat-label">This Month</div>
+            <i class="fas fa-chart-line fa-2x"></i>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card bg-info text-white">
+            <div class="stat-number">{{ total_users }}</div>
+            <div class="stat-label">Total Users</div>
+            <i class="fas fa-users fa-2x"></i>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card bg-warning text-white">
+            <div class="stat-number">{{ total_products }}</div>
+            <div class="stat-label">Total Products</div>
+            <i class="fas fa-boxes fa-2x"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-area me-2"></i>Revenue Trend (Last 7 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="revenueChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-pie me-2"></i>Payment Methods</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="paymentChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Business Performance Row -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-trophy me-2"></i>Top Performing</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6 class="text-success">Best Selling Products</h6>
+                    <ul class="list-unstyled">
+                        <li class="d-flex justify-content-between">
+                            <span>Smartphone</span>
+                            <badge class="badge bg-success">25 sold</badge>
+                        </li>
+                        <li class="d-flex justify-content-between">
+                            <span>Coffee</span>
+                            <badge class="badge bg-success">18 sold</badge>
+                        </li>
+                        <li class="d-flex justify-content-between">
+                            <span>T-Shirt</span>
+                            <badge class="badge bg-success">12 sold</badge>
+                        </li>
+                    </ul>
+                </div>
+                <div>
+                    <h6 class="text-info">Top Cashiers</h6>
+                    <ul class="list-unstyled">
+                        <li class="d-flex justify-content-between">
+                            <span>{{ current_user.username }}</span>
+                            <badge class="badge bg-info">${{ "%.0f"|format(today_sales) }}</badge>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-exclamation-triangle text-warning me-2"></i>Alerts</h6>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning py-2 mb-2">
+                    <small><i class="fas fa-box me-1"></i>5 products low on stock</small>
+                </div>
+                <div class="alert alert-danger py-2 mb-2">
+                    <small><i class="fas fa-times me-1"></i>2 products out of stock</small>
+                </div>
+                <div class="alert alert-info py-2 mb-0">
+                    <small><i class="fas fa-info-circle me-1"></i>System running smoothly</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-cogs me-2"></i>Quick Actions</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('user_management') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-users me-1"></i>Manage Users
+                    </a>
+                    <a href="{{ url_for('product_management') }}" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-boxes me-1"></i>Manage Products
+                    </a>
+                    <button class="btn btn-outline-info btn-sm" onclick="downloadReport()">
+                        <i class="fas fa-download me-1"></i>Download Report
+                    </button>
+                    <a href="{{ url_for('cashier_pos') }}" class="btn btn-outline-warning btn-sm">
+                        <i class="fas fa-cash-register me-1"></i>Open POS
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Transactions Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-list me-2"></i>All Transactions</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshTransactions()">
+                        <i class="fas fa-refresh me-1"></i>Refresh
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="exportTransactions()">
+                        <i class="fas fa-file-excel me-1"></i>Export
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if recent_transactions %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cashier</th>
+                                <th>Items</th>
+                                <th>Amount</th>
+                                <th>Payment</th>
+                                <th>Date & Time</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in recent_transactions %}
+                            <tr>
+                                <td>
+                                    <code class="text-primary">{{ transaction.transaction_id }}</code>
+                                </td>
+                                <td>
+                                    <i class="fas fa-user me-1"></i>{{ transaction.user.username }}
+                                    <small class="text-muted d-block">{{ transaction.user.role.title() }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        {{ transaction.items|length }} items
+                                    </span>
+                                    {% if transaction.items %}
+                                    <small class="text-muted d-block">
+                                        {% for item in transaction.items[:2] %}
+                                            {{ item.product.name }}{% if not loop.last %}, {% endif %}
+                                        {% endfor %}
+                                        {% if transaction.items|length > 2 %}...{% endif %}
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong class="text-success">
+                                        ${{ "%.2f"|format(transaction.total_amount) }}
+                                    </strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if transaction.payment_method == 'cash' %}success{% elif transaction.payment_method == 'card' %}primary{% else %}info{% endif %}">
+                                        {{ transaction.payment_method.title() }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div>{{ transaction.created_at.strftime('%m/%d/%Y') }}</div>
+                                    <small class="text-muted">{{ transaction.created_at.strftime('%I:%M %p') }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" onclick="viewTransaction('{{ transaction.transaction_id }}')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-outline-success" onclick="printReceipt('{{ transaction.transaction_id }}')">
+                                            <i class="fas fa-print"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-receipt fa-3x mb-3"></i>
+                    <h4>No transactions yet</h4>
+                    <p>Sales data will appear here once transactions are made.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Revenue Chart
+fetch('/api/sales-data')
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(item => new Date(item.date).toLocaleDateString()),
+                datasets: [{
+                    label: 'Daily Revenue ($)',
+                    data: data.map(item => item.sales),
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#667eea',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toFixed(2);
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+// Payment Methods Chart
+const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+new Chart(paymentCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Cash', 'Card', 'Digital'],
+        datasets: [{
+            data: [60, 35, 5], // Sample data
+            backgroundColor: [
+                '#28a745',
+                '#007bff',
+                '#17a2b8'
+            ],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Functions for interactive elements
+function viewTransaction(transactionId) {
+    alert(`View transaction details for: ${transactionId}`);
+    // Would open a modal or redirect to transaction details page
+}
+
+function printReceipt(transactionId) {
+    alert(`Print receipt for transaction: ${transactionId}`);
+    // Would generate and print receipt
+}
+
+function refreshTransactions() {
+    location.reload();
+}
+
+function exportTransactions() {
+    alert('Export transactions to Excel/CSV');
+    // Would generate and download export file
+}
+
+function downloadReport() {
+    alert('Download comprehensive business report');
+    // Would generate detailed business report
+}
+
+// Real-time updates (every 30 seconds)
+setInterval(() => {
+    // In a real app, you'd fetch new data and update displays
+    console.log('Checking for updates...');
+}, 30000);
+
+// Notification system for new transactions
+function checkForNewTransactions() {
+    // Would check for new transactions and show notifications
+}
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    checkForNewTransactions();
+});
+</script>
+{% endblock %}

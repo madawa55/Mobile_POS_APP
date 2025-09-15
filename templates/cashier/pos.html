@@ -1,0 +1,722 @@
+{% extends "base.html" %}
+
+{% block title %}POS - Cashier{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pos-container {
+        height: calc(100vh - 100px);
+        overflow: hidden;
+    }
+
+    .product-grid {
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+    .cart-section {
+        height: calc(100vh - 150px);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cart-items {
+        flex: 1;
+        overflow-y: auto;
+        max-height: 400px;
+    }
+
+    .cart-footer {
+        border-top: 2px solid #dee2e6;
+        padding: 15px 0;
+        background: white;
+    }
+
+    .scanner-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pos-container">
+    <div class="row h-100">
+        <!-- Products Section -->
+        <div class="col-lg-8">
+            <!-- Barcode Scanner Section -->
+            <div class="scanner-section mb-3">
+                <h5><i class="fas fa-barcode me-2"></i>Barcode Scanner</h5>
+                <div class="input-group">
+                    <input type="text" id="barcodeInput" class="form-control form-control-lg"
+                           placeholder="Scan or enter barcode..." autofocus>
+                    <button class="btn btn-light" type="button" onclick="clearBarcode()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button class="btn btn-success" type="button" onclick="startCameraScanner()" id="cameraBtn">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                </div>
+                <small class="mt-2 d-block">Scan product barcode or enter manually</small>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="mb-3">
+                <div class="btn-group flex-wrap" role="group">
+                    <button type="button" class="btn btn-outline-primary active" onclick="filterProducts('all')">
+                        All Products
+                    </button>
+                    {% for category in categories %}
+                    <button type="button" class="btn btn-outline-primary" onclick="filterProducts('{{ category.id }}')">
+                        {{ category.name }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Products Grid -->
+            <div class="product-grid">
+                <div class="row" id="productsGrid">
+                    {% for product in products %}
+                    <div class="col-6 col-md-4 col-lg-3 mb-3 product-item"
+                         data-category="{{ product.category_id if product.category_id else 'none' }}">
+                        <div class="card product-card h-100" onclick="addToCart({{ product.id }}, '{{ product.name }}', {{ product.price }}, '{{ product.image_url or '' }}')">
+                            <div class="card-body p-2 text-center">
+                                {% if product.image_url %}
+                                <img src="{{ url_for('static', filename=product.image_url) }}"
+                                     class="product-image mb-2" alt="{{ product.name }}">
+                                {% else %}
+                                <div class="product-image mb-2 d-flex align-items-center justify-content-center bg-light">
+                                    <i class="fas fa-box fa-2x text-muted"></i>
+                                </div>
+                                {% endif %}
+                                <h6 class="card-title mb-1 small">{{ product.name }}</h6>
+                                <p class="card-text mb-1">
+                                    <strong class="text-primary">${{ "%.2f"|format(product.price) }}</strong>
+                                </p>
+                                <small class="text-muted">Stock: {{ product.stock_quantity }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Cart Section -->
+        <div class="col-lg-4">
+            <div class="cart-section card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shopping-cart me-2"></i>Cart
+                        <span id="cartCount" class="badge bg-primary">0</span>
+                    </h5>
+                </div>
+
+                <div class="card-body p-0">
+                    <div class="cart-items p-3" id="cartItems">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+                            <p>Cart is empty<br><small>Scan or click products to add</small></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cart-footer p-3">
+                    <div class="cart-total mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Subtotal:</span>
+                            <span id="cartSubtotal">$0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Tax (8%):</span>
+                            <span id="cartTax">$0.00</span>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between h5">
+                            <strong>Total:</strong>
+                            <strong id="cartTotal">$0.00</strong>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-success" onclick="processPayment('cash')" id="cashBtn">
+                                <i class="fas fa-money-bill me-1"></i>Cash
+                            </button>
+                            <button class="btn btn-primary" onclick="processPayment('card')" id="cardBtn">
+                                <i class="fas fa-credit-card me-1"></i>Card
+                            </button>
+                        </div>
+                        <button class="btn btn-outline-secondary" onclick="clearCart()">
+                            <i class="fas fa-trash me-1"></i>Clear Cart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Camera Scanner Modal -->
+<div class="modal fade" id="cameraScannerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-camera me-2"></i>Camera Barcode Scanner
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="cameraContainer">
+                    <video id="cameraVideo" width="100%" height="300" autoplay playsinline></video>
+                    <canvas id="cameraCanvas" style="display: none;"></canvas>
+
+                    <div class="scanner-overlay" id="scannerOverlay">
+                        <div class="scanner-line"></div>
+                        <p class="text-white mt-3">Position barcode in the center</p>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <div class="alert alert-info" id="scannerStatus">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Camera is starting...
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button class="btn btn-outline-primary me-2" onclick="switchCamera()" id="switchCameraBtn" style="display: none;">
+                        <i class="fas fa-sync-alt me-1"></i>Switch Camera
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="toggleFlashlight()" id="flashBtn" style="display: none;">
+                        <i class="fas fa-flashlight me-1"></i>Flash
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="stopCameraScanner()">Close Scanner</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Receipt Modal -->
+<div class="modal fade" id="receiptModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Receipt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="receiptContent" class="receipt"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="printReceipt()">
+                    <i class="fas fa-print me-1"></i>Print Receipt
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let cart = [];
+const TAX_RATE = 0.08;
+
+// Barcode scanner functionality
+document.getElementById('barcodeInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        const barcode = this.value.trim();
+        if (barcode) {
+            scanBarcode(barcode);
+            this.value = '';
+        }
+    }
+});
+
+function scanBarcode(barcode) {
+    fetch(`/api/barcode/${barcode}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const product = data.product;
+                addToCart(product.id, product.name, product.price, product.image_url || '');
+            } else {
+                alert('Product not found: ' + barcode);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error scanning barcode');
+        });
+}
+
+function clearBarcode() {
+    document.getElementById('barcodeInput').value = '';
+    document.getElementById('barcodeInput').focus();
+}
+
+// Product filtering
+function filterProducts(categoryId) {
+    const products = document.querySelectorAll('.product-item');
+    const buttons = document.querySelectorAll('.btn-group .btn');
+
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    products.forEach(product => {
+        const productCategory = product.dataset.category;
+        if (categoryId === 'all' || productCategory === categoryId) {
+            product.style.display = 'block';
+        } else {
+            product.style.display = 'none';
+        }
+    });
+}
+
+// Cart functionality
+function addToCart(productId, name, price, imageUrl) {
+    const existingItem = cart.find(item => item.id === productId);
+
+    if (existingItem) {
+        existingItem.quantity += 1;
+    } else {
+        cart.push({
+            id: productId,
+            name: name,
+            price: parseFloat(price),
+            quantity: 1,
+            imageUrl: imageUrl
+        });
+    }
+
+    updateCartDisplay();
+}
+
+function removeFromCart(productId) {
+    cart = cart.filter(item => item.id !== productId);
+    updateCartDisplay();
+}
+
+function updateQuantity(productId, change) {
+    const item = cart.find(item => item.id === productId);
+    if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+            removeFromCart(productId);
+        } else {
+            updateCartDisplay();
+        }
+    }
+}
+
+function updateCartDisplay() {
+    const cartItems = document.getElementById('cartItems');
+    const cartCount = document.getElementById('cartCount');
+    const cartSubtotal = document.getElementById('cartSubtotal');
+    const cartTax = document.getElementById('cartTax');
+    const cartTotal = document.getElementById('cartTotal');
+
+    if (cart.length === 0) {
+        cartItems.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+                <p>Cart is empty<br><small>Scan or click products to add</small></p>
+            </div>
+        `;
+        cartCount.textContent = '0';
+        cartSubtotal.textContent = '$0.00';
+        cartTax.textContent = '$0.00';
+        cartTotal.textContent = '$0.00';
+        return;
+    }
+
+    const itemsHtml = cart.map(item => `
+        <div class="cart-item d-flex align-items-center">
+            ${item.imageUrl ?
+                `<img src="/static/${item.imageUrl}" class="me-2" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` :
+                `<div class="me-2 bg-light d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; border-radius: 4px;">
+                    <i class="fas fa-box text-muted"></i>
+                </div>`
+            }
+            <div class="flex-grow-1">
+                <h6 class="mb-0">${item.name}</h6>
+                <small class="text-muted">$${item.price.toFixed(2)} each</small>
+            </div>
+            <div class="btn-group btn-group-sm" role="group">
+                <button class="btn btn-outline-secondary" onclick="updateQuantity(${item.id}, -1)">-</button>
+                <button class="btn btn-outline-secondary" disabled>${item.quantity}</button>
+                <button class="btn btn-outline-secondary" onclick="updateQuantity(${item.id}, 1)">+</button>
+            </div>
+            <div class="ms-2 text-end" style="min-width: 60px;">
+                <strong>$${(item.price * item.quantity).toFixed(2)}</strong>
+            </div>
+            <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeFromCart(${item.id})">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+    `).join('');
+
+    cartItems.innerHTML = itemsHtml;
+
+    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const tax = subtotal * TAX_RATE;
+    const total = subtotal + tax;
+
+    cartCount.textContent = totalItems;
+    cartSubtotal.textContent = `$${subtotal.toFixed(2)}`;
+    cartTax.textContent = `$${tax.toFixed(2)}`;
+    cartTotal.textContent = `$${total.toFixed(2)}`;
+}
+
+function clearCart() {
+    if (confirm('Clear all items from cart?')) {
+        cart = [];
+        updateCartDisplay();
+    }
+}
+
+// Payment processing
+function processPayment(method) {
+    if (cart.length === 0) {
+        alert('Cart is empty!');
+        return;
+    }
+
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const tax = subtotal * TAX_RATE;
+    const total = subtotal + tax;
+
+    const transactionData = {
+        items: cart.map(item => ({
+            product_id: item.id,
+            quantity: item.quantity,
+            unit_price: item.price,
+            total_price: item.price * item.quantity
+        })),
+        total_amount: total,
+        payment_method: method
+    };
+
+    // Disable payment buttons
+    document.getElementById('cashBtn').disabled = true;
+    document.getElementById('cardBtn').disabled = true;
+
+    fetch('/api/transaction', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transactionData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Re-enable payment buttons
+        document.getElementById('cashBtn').disabled = false;
+        document.getElementById('cardBtn').disabled = false;
+
+        if (data.success) {
+            showReceipt(data.transaction_id, method, subtotal, tax, total);
+            cart = [];
+            updateCartDisplay();
+        } else {
+            alert('Transaction failed: ' + data.message);
+        }
+    })
+    .catch(error => {
+        // Re-enable payment buttons
+        document.getElementById('cashBtn').disabled = false;
+        document.getElementById('cardBtn').disabled = false;
+
+        console.error('Error:', error);
+        alert('Transaction failed. Please try again.');
+    });
+}
+
+function showReceipt(transactionId, method, subtotal, tax, total) {
+    const now = new Date();
+    const receiptHtml = `
+        <div class="text-center">
+            <h4>Demo Store</h4>
+            <p>123 Demo Street<br>Phone: +1234567890</p>
+            <hr>
+        </div>
+
+        <div class="mb-3">
+            <strong>Transaction ID:</strong> ${transactionId}<br>
+            <strong>Date:</strong> ${now.toLocaleString()}<br>
+            <strong>Cashier:</strong> {{ current_user.username }}<br>
+            <strong>Payment:</strong> ${method.toUpperCase()}
+        </div>
+
+        <hr>
+
+        <div class="mb-3">
+            ${cart.map(item => `
+                <div class="d-flex justify-content-between">
+                    <div>${item.name} (${item.quantity}x)</div>
+                    <div>$${(item.price * item.quantity).toFixed(2)}</div>
+                </div>
+            `).join('')}
+        </div>
+
+        <hr>
+
+        <div class="d-flex justify-content-between">
+            <div>Subtotal:</div>
+            <div>$${subtotal.toFixed(2)}</div>
+        </div>
+        <div class="d-flex justify-content-between">
+            <div>Tax (8%):</div>
+            <div>$${tax.toFixed(2)}</div>
+        </div>
+        <div class="d-flex justify-content-between h5">
+            <strong>Total:</strong>
+            <strong>$${total.toFixed(2)}</strong>
+        </div>
+
+        <div class="text-center mt-4">
+            <p>Thank you for your business!</p>
+            <small>Visit us again soon</small>
+        </div>
+    `;
+
+    document.getElementById('receiptContent').innerHTML = receiptHtml;
+    const receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
+    receiptModal.show();
+}
+
+function printReceipt() {
+    const receiptContent = document.getElementById('receiptContent').innerHTML;
+    const printWindow = window.open('', '', 'width=300,height=500');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Receipt</title>
+                <style>
+                    body { font-family: 'Courier New', monospace; font-size: 12px; width: 250px; }
+                    .d-flex { display: flex; }
+                    .justify-content-between { justify-content: space-between; }
+                    .text-center { text-align: center; }
+                    hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+                    h4 { margin: 10px 0; }
+                    .h5 { font-size: 16px; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                ${receiptContent}
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// Camera Scanner Variables
+let cameraStream = null;
+let currentCamera = 0;
+let availableCameras = [];
+let isScanning = false;
+let scannerInterval = null;
+
+// Camera Scanner Functions
+async function startCameraScanner() {
+    const modal = new bootstrap.Modal(document.getElementById('cameraScannerModal'));
+    modal.show();
+
+    try {
+        // Get available cameras
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        availableCameras = devices.filter(device => device.kind === 'videoinput');
+
+        if (availableCameras.length > 1) {
+            document.getElementById('switchCameraBtn').style.display = 'inline-block';
+        }
+
+        await startCamera();
+        startBarcodeDetection();
+
+    } catch (error) {
+        console.error('Camera access error:', error);
+        updateScannerStatus('Camera access denied. Please allow camera permission.', 'danger');
+    }
+}
+
+async function startCamera() {
+    const video = document.getElementById('cameraVideo');
+
+    try {
+        // Stop existing stream
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+        }
+
+        // Start camera with rear camera preference
+        const constraints = {
+            video: {
+                facingMode: currentCamera === 0 ? { ideal: 'environment' } : 'user',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
+
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = cameraStream;
+
+        updateScannerStatus('Camera ready! Position barcode in the center.', 'success');
+
+        // Show flash button if supported
+        const track = cameraStream.getVideoTracks()[0];
+        if (track.getCapabilities && track.getCapabilities().torch) {
+            document.getElementById('flashBtn').style.display = 'inline-block';
+        }
+
+    } catch (error) {
+        console.error('Camera start error:', error);
+        updateScannerStatus('Failed to start camera. Please try again.', 'danger');
+    }
+}
+
+function startBarcodeDetection() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('cameraCanvas');
+    const ctx = canvas.getContext('2d');
+
+    isScanning = true;
+
+    scannerInterval = setInterval(() => {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Simple barcode detection (in real implementation, use QuaggaJS or similar)
+            // For now, we'll simulate barcode detection
+            detectBarcode(canvas);
+        }
+    }, 500); // Check every 500ms
+}
+
+function detectBarcode(canvas) {
+    // This is a simplified barcode detection
+    // In a real implementation, you would use a library like QuaggaJS
+
+    // For demo purposes, let's simulate finding a barcode after a few seconds
+    if (Math.random() < 0.1) { // 10% chance each scan
+        const simulatedBarcode = '1234567890123'; // Demo barcode
+        onBarcodeDetected(simulatedBarcode);
+    }
+}
+
+function onBarcodeDetected(barcode) {
+    if (!isScanning) return;
+
+    isScanning = false;
+    clearInterval(scannerInterval);
+
+    // Add visual feedback
+    updateScannerStatus(`Barcode detected: ${barcode}`, 'success');
+
+    // Add to POS
+    document.getElementById('barcodeInput').value = barcode;
+    scanBarcode(barcode);
+
+    // Close scanner after short delay
+    setTimeout(() => {
+        stopCameraScanner();
+    }, 1000);
+}
+
+function switchCamera() {
+    currentCamera = (currentCamera + 1) % availableCameras.length;
+    startCamera();
+}
+
+function toggleFlashlight() {
+    if (cameraStream) {
+        const track = cameraStream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+
+        if (capabilities.torch) {
+            const currentConstraints = track.getConstraints();
+            const torchOn = currentConstraints.advanced &&
+                           currentConstraints.advanced[0] &&
+                           currentConstraints.advanced[0].torch;
+
+            track.applyConstraints({
+                advanced: [{ torch: !torchOn }]
+            }).then(() => {
+                const flashBtn = document.getElementById('flashBtn');
+                flashBtn.innerHTML = torchOn ?
+                    '<i class="fas fa-flashlight me-1"></i>Flash' :
+                    '<i class="fas fa-flashlight me-1"></i>Flash On';
+            });
+        }
+    }
+}
+
+function stopCameraScanner() {
+    isScanning = false;
+
+    if (scannerInterval) {
+        clearInterval(scannerInterval);
+    }
+
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('cameraScannerModal'));
+    if (modal) {
+        modal.hide();
+    }
+}
+
+function updateScannerStatus(message, type) {
+    const statusDiv = document.getElementById('scannerStatus');
+    statusDiv.className = `alert alert-${type}`;
+    statusDiv.innerHTML = `<i class="fas fa-info-circle me-1"></i>${message}`;
+}
+
+// Enhanced barcode input for hardware scanners
+document.getElementById('barcodeInput').addEventListener('input', function() {
+    const barcode = this.value.trim();
+
+    // Auto-scan when barcode is complete (typically 12-13 digits)
+    if (barcode.length >= 12 && barcode.length <= 13 && /^\d+$/.test(barcode)) {
+        setTimeout(() => {
+            scanBarcode(barcode);
+            this.value = '';
+        }, 100);
+    }
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateCartDisplay();
+    document.getElementById('barcodeInput').focus();
+
+    // Check camera support
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        console.log('Camera scanning supported');
+    } else {
+        console.log('Camera scanning not supported - hardware scanner only');
+        document.getElementById('cameraBtn').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

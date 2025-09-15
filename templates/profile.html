@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - {{ current_user.username }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-user-cog me-2"></i>Profile Settings</h2>
+                <div class="text-muted">Manage your account settings</div>
+            </div>
+
+            <div class="row">
+                <!-- Profile Information Card -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-user me-2"></i>Profile Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-4">
+                                <div class="profile-avatar">
+                                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center"
+                                         style="width: 80px; height: 80px; font-size: 2rem;">
+                                        {{ current_user.username[0].upper() }}
+                                    </div>
+                                </div>
+                                <h4 class="mt-3 mb-1">{{ current_user.username }}</h4>
+                                <span class="badge bg-{% if current_user.role == 'owner' %}warning{% elif current_user.role == 'manager' %}success{% else %}info{% endif %} fs-6">
+                                    {{ current_user.role.title() }}
+                                </span>
+                            </div>
+
+                            <form id="profileForm">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="username" value="{{ current_user.username }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" value="{{ current_user.email }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="role" class="form-label">Role</label>
+                                    <input type="text" class="form-control" id="role" value="{{ current_user.role.title() }}" readonly>
+                                    <div class="form-text">Contact your system administrator to change your role</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Account Status</label>
+                                    <div class="form-control-plaintext">
+                                        {% if current_user.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                        <small class="text-muted ms-2">Member since {{ current_user.created_at.strftime('%B %Y') }}</small>
+                                    </div>
+                                </div>
+
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-1"></i>Update Profile
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Settings Card -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-shield-alt me-2"></i>Security Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="passwordForm">
+                                <div class="mb-3">
+                                    <label for="currentPassword" class="form-label">Current Password</label>
+                                    <input type="password" class="form-control" id="currentPassword" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="newPassword" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="newPassword" required>
+                                    <div class="form-text">Minimum 6 characters</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" id="confirmPassword" required>
+                                </div>
+
+                                <div class="d-grid mb-4">
+                                    <button type="submit" class="btn btn-warning">
+                                        <i class="fas fa-key me-1"></i>Change Password
+                                    </button>
+                                </div>
+                            </form>
+
+                            <hr>
+
+                            <div class="mb-3">
+                                <h6><i class="fas fa-history me-1"></i>Recent Activity</h6>
+                                <div class="list-group list-group-flush">
+                                    <div class="list-group-item px-0">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <i class="fas fa-sign-in-alt text-success me-2"></i>
+                                                Last login
+                                            </div>
+                                            <small class="text-muted">Just now</small>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item px-0">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <i class="fas fa-edit text-info me-2"></i>
+                                                Profile updated
+                                            </div>
+                                            <small class="text-muted">Yesterday</small>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item px-0">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <i class="fas fa-key text-warning me-2"></i>
+                                                Password changed
+                                            </div>
+                                            <small class="text-muted">1 week ago</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Permissions & Access Card -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-user-shield me-2"></i>Role Permissions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <h6 class="text-success">✓ Allowed Actions</h6>
+                                    <ul class="list-unstyled">
+                                        {% if current_user.role in ['cashier', 'manager', 'owner'] %}
+                                        <li><i class="fas fa-check text-success me-2"></i>Use POS System</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Process Sales</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Print Receipts</li>
+                                        {% endif %}
+
+                                        {% if current_user.role in ['manager', 'owner'] %}
+                                        <li><i class="fas fa-check text-success me-2"></i>Manage Products</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>View Inventory</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>View Reports</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Update Stock</li>
+                                        {% endif %}
+
+                                        {% if current_user.role == 'owner' %}
+                                        <li><i class="fas fa-check text-success me-2"></i>Manage Users</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>View All Transactions</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Business Settings</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Export Data</li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <h6 class="text-muted">✗ Restricted Actions</h6>
+                                    <ul class="list-unstyled">
+                                        {% if current_user.role == 'cashier' %}
+                                        <li><i class="fas fa-times text-muted me-2"></i>Manage Products</li>
+                                        <li><i class="fas fa-times text-muted me-2"></i>View Full Reports</li>
+                                        <li><i class="fas fa-times text-muted me-2"></i>Manage Users</li>
+                                        <li><i class="fas fa-times text-muted me-2"></i>Update Inventory</li>
+                                        {% endif %}
+
+                                        {% if current_user.role == 'manager' %}
+                                        <li><i class="fas fa-times text-muted me-2"></i>Manage Users</li>
+                                        <li><i class="fas fa-times text-muted me-2"></i>Business Settings</li>
+                                        <li><i class="fas fa-times text-muted me-2"></i>Delete Transactions</li>
+                                        {% endif %}
+
+                                        {% if current_user.role == 'owner' %}
+                                        <li class="text-muted"><i>No restrictions</i></li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <h6 class="text-info">🛈 Role Information</h6>
+                                    <div class="bg-light p-3 rounded">
+                                        {% if current_user.role == 'cashier' %}
+                                        <strong>Cashier Role:</strong><br>
+                                        You can process sales transactions, scan products, and print receipts. Contact your manager for product or inventory issues.
+                                        {% elif current_user.role == 'manager' %}
+                                        <strong>Manager Role:</strong><br>
+                                        You can manage the product catalog, monitor inventory levels, and view business reports. Contact the owner for user management needs.
+                                        {% elif current_user.role == 'owner' %}
+                                        <strong>Owner Role:</strong><br>
+                                        You have complete access to all system features including user management, business settings, and comprehensive reporting.
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Profile form submission
+document.getElementById('profileForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const username = document.getElementById('username').value;
+    const email = document.getElementById('email').value;
+
+    if (!username || !email) {
+        alert('Please fill in all required fields');
+        return;
+    }
+
+    // In a real implementation, this would make an API call
+    alert('Profile updated successfully!');
+});
+
+// Password form submission
+document.getElementById('passwordForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        alert('Please fill in all password fields');
+        return;
+    }
+
+    if (newPassword.length < 6) {
+        alert('New password must be at least 6 characters');
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        alert('New password and confirmation do not match');
+        return;
+    }
+
+    // In a real implementation, this would make an API call
+    alert('Password changed successfully!');
+
+    // Clear form
+    this.reset();
+});
+
+// Password strength indicator
+document.getElementById('newPassword').addEventListener('input', function() {
+    const password = this.value;
+    let strength = 0;
+    let feedback = '';
+
+    if (password.length >= 6) strength++;
+    if (password.match(/[a-z]/)) strength++;
+    if (password.match(/[A-Z]/)) strength++;
+    if (password.match(/[0-9]/)) strength++;
+    if (password.match(/[^a-zA-Z0-9]/)) strength++;
+
+    switch (strength) {
+        case 0-1:
+            feedback = 'Very Weak';
+            break;
+        case 2:
+            feedback = 'Weak';
+            break;
+        case 3:
+            feedback = 'Fair';
+            break;
+        case 4:
+            feedback = 'Good';
+            break;
+        case 5:
+            feedback = 'Strong';
+            break;
+    }
+
+    // You could add a visual indicator here
+    console.log('Password strength:', feedback);
+});
+
+// Auto-save profile changes to localStorage
+['username', 'email'].forEach(field => {
+    document.getElementById(field).addEventListener('input', debounce(() => {
+        const data = {
+            username: document.getElementById('username').value,
+            email: document.getElementById('email').value
+        };
+        localStorage.setItem('profile_draft', JSON.stringify(data));
+    }, 1000));
+});
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Load saved draft on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const saved = localStorage.getItem('profile_draft');
+    if (saved) {
+        const data = JSON.parse(saved);
+        if (data.username) document.getElementById('username').value = data.username;
+        if (data.email) document.getElementById('email').value = data.email;
+    }
+});
+</script>
+{% endblock %}

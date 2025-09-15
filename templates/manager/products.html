@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}Product Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-boxes me-2"></i>Product Management</h2>
+    <a href="{{ url_for('add_product') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>Add New Product
+    </a>
+</div>
+
+<!-- Search and Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search products...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="categoryFilter">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.name }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="stockFilter">
+                    <option value="">All Stock Levels</option>
+                    <option value="high">High Stock (>50)</option>
+                    <option value="medium">Medium Stock (11-50)</option>
+                    <option value="low">Low Stock (1-10)</option>
+                    <option value="out">Out of Stock</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Products Table -->
+<div class="card">
+    <div class="card-body">
+        {% if products %}
+        <div class="table-responsive">
+            <table class="table table-striped" id="productsTable">
+                <thead>
+                    <tr>
+                        <th>Image</th>
+                        <th>Product Name</th>
+                        <th>Barcode</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Cost</th>
+                        <th>Stock</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTableBody">
+                    {% for product in products %}
+                    <tr class="product-row"
+                        data-name="{{ product.name.lower() }}"
+                        data-category="{{ product.category.name if product.category else '' }}"
+                        data-stock="{{ product.stock_quantity }}">
+                        <td>
+                            {% if product.image_url %}
+                            <img src="{{ url_for('static', filename=product.image_url) }}"
+                                 class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                            {% else %}
+                            <div class="bg-light d-flex align-items-center justify-content-center"
+                                 style="width: 50px; height: 50px;">
+                                <i class="fas fa-box text-muted"></i>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ product.name }}</strong>
+                            {% if not product.is_active %}
+                            <span class="badge bg-secondary ms-1">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td><code>{{ product.barcode }}</code></td>
+                        <td>
+                            {% if product.category %}
+                            <span class="badge bg-primary">{{ product.category.name }}</span>
+                            {% else %}
+                            <span class="text-muted">Uncategorized</span>
+                            {% endif %}
+                        </td>
+                        <td><strong class="text-success">${{ "%.2f"|format(product.price) }}</strong></td>
+                        <td class="text-muted">${{ "%.2f"|format(product.cost) }}</td>
+                        <td>
+                            <span class="badge bg-{% if product.stock_quantity > 50 %}success{% elif product.stock_quantity > 10 %}warning{% elif product.stock_quantity > 0 %}danger{% else %}secondary{% endif %}">
+                                {{ product.stock_quantity }}
+                                {% if product.stock_quantity <= product.min_stock_level and product.stock_quantity > 0 %}
+                                <i class="fas fa-exclamation-triangle ms-1" title="Low Stock"></i>
+                                {% elif product.stock_quantity == 0 %}
+                                <i class="fas fa-times ms-1" title="Out of Stock"></i>
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if product.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-primary" onclick="editProduct({{ product.id }})" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-success" onclick="adjustStock({{ product.id }}, '{{ product.name }}', {{ product.stock_quantity }})" title="Adjust Stock">
+                                    <i class="fas fa-plus-minus"></i>
+                                </button>
+                                <button class="btn btn-outline-{% if product.is_active %}warning{% else %}success{% endif %}"
+                                        onclick="toggleProduct({{ product.id }}, {{ product.is_active|lower }})"
+                                        title="{% if product.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                    <i class="fas fa-{% if product.is_active %}pause{% else %}play{% endif %}"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="fas fa-boxes fa-3x mb-3"></i>
+            <h4>No products found</h4>
+            <p>Start by adding your first product to the inventory.</p>
+            <a href="{{ url_for('add_product') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Add Product
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Stock Adjustment Modal -->
+<div class="modal fade" id="stockModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Adjust Stock</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="stockForm">
+                    <input type="hidden" id="productId">
+                    <div class="mb-3">
+                        <label class="form-label">Product</label>
+                        <input type="text" id="productName" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Current Stock</label>
+                        <input type="number" id="currentStock" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="stockAdjustment" class="form-label">Adjustment (+/-)</label>
+                        <input type="number" id="stockAdjustment" class="form-control" required>
+                        <div class="form-text">Use positive numbers to add stock, negative to reduce</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="adjustmentReason" class="form-label">Reason</label>
+                        <select id="adjustmentReason" class="form-select">
+                            <option value="restock">Restock</option>
+                            <option value="sale_return">Sale Return</option>
+                            <option value="damaged">Damaged Items</option>
+                            <option value="theft">Theft/Loss</option>
+                            <option value="correction">Stock Correction</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveStockAdjustment()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function() {
+    filterProducts();
+});
+
+document.getElementById('categoryFilter').addEventListener('change', function() {
+    filterProducts();
+});
+
+document.getElementById('stockFilter').addEventListener('change', function() {
+    filterProducts();
+});
+
+function filterProducts() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
+    const stockFilter = document.getElementById('stockFilter').value;
+    const rows = document.querySelectorAll('.product-row');
+
+    rows.forEach(row => {
+        const name = row.dataset.name;
+        const category = row.dataset.category.toLowerCase();
+        const stock = parseInt(row.dataset.stock);
+
+        let showRow = true;
+
+        // Search filter
+        if (searchTerm && !name.includes(searchTerm)) {
+            showRow = false;
+        }
+
+        // Category filter
+        if (categoryFilter && category !== categoryFilter) {
+            showRow = false;
+        }
+
+        // Stock filter
+        if (stockFilter) {
+            switch (stockFilter) {
+                case 'high':
+                    if (stock <= 50) showRow = false;
+                    break;
+                case 'medium':
+                    if (stock <= 10 || stock > 50) showRow = false;
+                    break;
+                case 'low':
+                    if (stock <= 0 || stock > 10) showRow = false;
+                    break;
+                case 'out':
+                    if (stock > 0) showRow = false;
+                    break;
+            }
+        }
+
+        row.style.display = showRow ? '' : 'none';
+    });
+}
+
+function adjustStock(productId, productName, currentStock) {
+    document.getElementById('productId').value = productId;
+    document.getElementById('productName').value = productName;
+    document.getElementById('currentStock').value = currentStock;
+    document.getElementById('stockAdjustment').value = '';
+
+    const stockModal = new bootstrap.Modal(document.getElementById('stockModal'));
+    stockModal.show();
+}
+
+function saveStockAdjustment() {
+    const productId = document.getElementById('productId').value;
+    const adjustment = parseInt(document.getElementById('stockAdjustment').value);
+    const reason = document.getElementById('adjustmentReason').value;
+
+    if (!adjustment) {
+        alert('Please enter an adjustment amount');
+        return;
+    }
+
+    // Note: This would need a backend endpoint to handle stock adjustments
+    // For now, we'll just reload the page
+    alert('Stock adjustment saved! (Feature would be implemented with backend endpoint)');
+
+    const stockModal = bootstrap.Modal.getInstance(document.getElementById('stockModal'));
+    stockModal.hide();
+
+    // In a real implementation, you would make an API call here
+    // and then refresh the data
+}
+
+function editProduct(productId) {
+    // Redirect to edit product page (would need to be implemented)
+    alert('Edit product feature would redirect to edit form');
+}
+
+function toggleProduct(productId, isActive) {
+    const action = isActive ? 'deactivate' : 'activate';
+    if (confirm(`Are you sure you want to ${action} this product?`)) {
+        // API call to toggle product status
+        alert(`Product ${action}d! (Feature would be implemented with backend endpoint)`);
+    }
+}
+
+// Real-time stock alerts
+function checkLowStock() {
+    const lowStockItems = document.querySelectorAll('[data-stock]');
+    let lowStockCount = 0;
+
+    lowStockItems.forEach(item => {
+        const stock = parseInt(item.dataset.stock);
+        if (stock <= 10 && stock > 0) {
+            lowStockCount++;
+        }
+    });
+
+    if (lowStockCount > 0) {
+        // You could add a notification system here
+        console.log(`${lowStockCount} items are running low on stock`);
+    }
+}
+
+// Check for low stock on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkLowStock();
+});
+</script>
+{% endblock %}

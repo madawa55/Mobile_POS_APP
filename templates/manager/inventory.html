@@ -1,0 +1,504 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-warehouse me-2"></i>Inventory Management</h2>
+    <div>
+        <button class="btn btn-primary" onclick="bulkStockUpdate()">
+            <i class="fas fa-upload me-1"></i>Bulk Update
+        </button>
+        <button class="btn btn-success" onclick="generateStockReport()">
+            <i class="fas fa-file-excel me-1"></i>Stock Report
+        </button>
+    </div>
+</div>
+
+<!-- Inventory Overview Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-number text-success">{{ products|selectattr('stock_quantity', 'gt', 50)|list|length }}</div>
+            <div class="stat-label">High Stock (>50)</div>
+            <i class="fas fa-arrow-up text-success fa-2x"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-number text-warning">{{ products|selectattr('stock_quantity', 'le', 50)|selectattr('stock_quantity', 'gt', 10)|list|length }}</div>
+            <div class="stat-label">Medium Stock (11-50)</div>
+            <i class="fas fa-minus text-warning fa-2x"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-number text-danger">{{ products|selectattr('stock_quantity', 'le', 10)|selectattr('stock_quantity', 'gt', 0)|list|length }}</div>
+            <div class="stat-label">Low Stock (1-10)</div>
+            <i class="fas fa-exclamation-triangle text-danger fa-2x"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-number text-secondary">{{ products|selectattr('stock_quantity', 'eq', 0)|list|length }}</div>
+            <div class="stat-label">Out of Stock</div>
+            <i class="fas fa-times text-secondary fa-2x"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search products...">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="stockLevelFilter">
+                    <option value="">All Levels</option>
+                    <option value="high">High Stock</option>
+                    <option value="medium">Medium Stock</option>
+                    <option value="low">Low Stock</option>
+                    <option value="out">Out of Stock</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="sortBy">
+                    <option value="name">Sort by Name</option>
+                    <option value="stock_asc">Stock (Low to High)</option>
+                    <option value="stock_desc">Stock (High to Low)</option>
+                    <option value="value_desc">Value (High to Low)</option>
+                </select>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-primary" id="viewGrid" onclick="switchView('grid')">
+                        <i class="fas fa-th"></i>
+                    </button>
+                    <button class="btn btn-outline-primary active" id="viewTable" onclick="switchView('table')">
+                        <i class="fas fa-list"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Inventory Grid/Table View -->
+<div id="tableView">
+    <div class="card">
+        <div class="card-body">
+            {% if products %}
+            <div class="table-responsive">
+                <table class="table table-striped" id="inventoryTable">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Current Stock</th>
+                            <th>Min Level</th>
+                            <th>Status</th>
+                            <th>Value</th>
+                            <th>Last Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody">
+                        {% for product in products %}
+                        <tr class="inventory-row"
+                            data-name="{{ product.name.lower() }}"
+                            data-stock="{{ product.stock_quantity }}"
+                            data-value="{{ product.stock_quantity * product.cost }}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if product.image_url %}
+                                    <img src="{{ url_for('static', filename=product.image_url) }}"
+                                         class="me-3 rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="me-3 bg-light rounded d-flex align-items-center justify-content-center"
+                                         style="width: 40px; height: 40px;">
+                                        <i class="fas fa-box text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        <strong>{{ product.name }}</strong>
+                                        <br><small class="text-muted">{{ product.barcode }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="stock-quantity me-2" style="font-size: 1.2em; font-weight: bold;">
+                                        {{ product.stock_quantity }}
+                                    </span>
+                                    {% if product.stock_quantity <= product.min_stock_level %}
+                                    <i class="fas fa-exclamation-triangle text-warning" title="Below minimum level"></i>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>{{ product.min_stock_level }}</td>
+                            <td>
+                                {% if product.stock_quantity == 0 %}
+                                <span class="badge bg-secondary">Out of Stock</span>
+                                {% elif product.stock_quantity <= product.min_stock_level %}
+                                <span class="badge bg-danger">Low Stock</span>
+                                {% elif product.stock_quantity <= 50 %}
+                                <span class="badge bg-warning">Medium Stock</span>
+                                {% else %}
+                                <span class="badge bg-success">High Stock</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>${{ "%.2f"|format(product.stock_quantity * product.cost) }}</strong>
+                                <br><small class="text-muted">${{ "%.2f"|format(product.cost) }} each</small>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ product.created_at.strftime('%m/%d/%Y') }}</small>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" onclick="quickAdjust({{ product.id }}, '{{ product.name }}', {{ product.stock_quantity }})" title="Quick Adjust">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success" onclick="restock({{ product.id }}, '{{ product.name }}')" title="Restock">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button class="btn btn-outline-info" onclick="viewHistory({{ product.id }})" title="View History">
+                                        <i class="fas fa-history"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-boxes fa-3x mb-3"></i>
+                <h4>No products in inventory</h4>
+                <p>Add products to start managing your inventory.</p>
+                <a href="{{ url_for('add_product') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Add Product
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Grid View (Hidden by default) -->
+<div id="gridView" style="display: none;">
+    <div class="row" id="inventoryGrid">
+        {% for product in products %}
+        <div class="col-md-4 col-lg-3 mb-4 inventory-card"
+             data-name="{{ product.name.lower() }}"
+             data-stock="{{ product.stock_quantity }}">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    {% if product.image_url %}
+                    <img src="{{ url_for('static', filename=product.image_url) }}"
+                         class="mb-3 rounded" style="width: 80px; height: 80px; object-fit: cover;">
+                    {% else %}
+                    <div class="mb-3 bg-light rounded d-flex align-items-center justify-content-center mx-auto"
+                         style="width: 80px; height: 80px;">
+                        <i class="fas fa-box fa-2x text-muted"></i>
+                    </div>
+                    {% endif %}
+                    <h6>{{ product.name }}</h6>
+                    <div class="mb-2">
+                        <span class="badge bg-{% if product.stock_quantity > 50 %}success{% elif product.stock_quantity > 10 %}warning{% elif product.stock_quantity > 0 %}danger{% else %}secondary{% endif %} fs-6">
+                            {{ product.stock_quantity }} units
+                        </span>
+                    </div>
+                    <div class="btn-group btn-group-sm w-100">
+                        <button class="btn btn-outline-primary" onclick="quickAdjust({{ product.id }}, '{{ product.name }}', {{ product.stock_quantity }})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-success" onclick="restock({{ product.id }}, '{{ product.name }}')">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Quick Adjust Modal -->
+<div class="modal fade" id="adjustModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Quick Stock Adjustment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="adjustForm">
+                    <input type="hidden" id="adjustProductId">
+                    <div class="mb-3">
+                        <label class="form-label">Product</label>
+                        <input type="text" id="adjustProductName" class="form-control" readonly>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label">Current Stock</label>
+                            <input type="number" id="currentStockLevel" class="form-control" readonly>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">New Stock Level</label>
+                            <input type="number" id="newStockLevel" class="form-control" min="0">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-success" onclick="quickAdd(-10)">-10</button>
+                            <button type="button" class="btn btn-outline-success" onclick="quickAdd(-5)">-5</button>
+                            <button type="button" class="btn btn-outline-success" onclick="quickAdd(-1)">-1</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="quickAdd(1)">+1</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="quickAdd(5)">+5</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="quickAdd(10)">+10</button>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label for="adjustReason" class="form-label">Reason for Adjustment</label>
+                        <select id="adjustReason" class="form-select">
+                            <option value="restock">Restock</option>
+                            <option value="sale_return">Sale Return</option>
+                            <option value="damaged">Damaged/Defective</option>
+                            <option value="theft">Theft/Loss</option>
+                            <option value="correction">Inventory Correction</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveAdjustment()">Update Stock</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Restock Modal -->
+<div class="modal fade" id="restockModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Restock Product</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="restockForm">
+                    <input type="hidden" id="restockProductId">
+                    <div class="mb-3">
+                        <label class="form-label">Product</label>
+                        <input type="text" id="restockProductName" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="restockQuantity" class="form-label">Quantity to Add</label>
+                        <input type="number" id="restockQuantity" class="form-control" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="restockCost" class="form-label">Unit Cost (Optional)</label>
+                        <input type="number" step="0.01" id="restockCost" class="form-control">
+                        <div class="form-text">Update cost per unit if changed</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="supplierName" class="form-label">Supplier (Optional)</label>
+                        <input type="text" id="supplierName" class="form-control">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="processRestock()">Add Stock</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Search and filter functionality
+document.getElementById('searchInput').addEventListener('input', filterInventory);
+document.getElementById('stockLevelFilter').addEventListener('change', filterInventory);
+document.getElementById('sortBy').addEventListener('change', sortInventory);
+
+function filterInventory() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const stockFilter = document.getElementById('stockLevelFilter').value;
+    const rows = document.querySelectorAll('.inventory-row');
+    const cards = document.querySelectorAll('.inventory-card');
+
+    [...rows, ...cards].forEach(element => {
+        const name = element.dataset.name;
+        const stock = parseInt(element.dataset.stock);
+
+        let showElement = true;
+
+        // Search filter
+        if (searchTerm && !name.includes(searchTerm)) {
+            showElement = false;
+        }
+
+        // Stock level filter
+        if (stockFilter) {
+            switch (stockFilter) {
+                case 'high':
+                    if (stock <= 50) showElement = false;
+                    break;
+                case 'medium':
+                    if (stock <= 10 || stock > 50) showElement = false;
+                    break;
+                case 'low':
+                    if (stock <= 0 || stock > 10) showElement = false;
+                    break;
+                case 'out':
+                    if (stock > 0) showElement = false;
+                    break;
+            }
+        }
+
+        element.style.display = showElement ? '' : 'none';
+    });
+}
+
+function sortInventory() {
+    const sortBy = document.getElementById('sortBy').value;
+    const tableBody = document.getElementById('inventoryTableBody');
+    const rows = Array.from(tableBody.querySelectorAll('.inventory-row'));
+
+    rows.sort((a, b) => {
+        switch (sortBy) {
+            case 'name':
+                return a.dataset.name.localeCompare(b.dataset.name);
+            case 'stock_asc':
+                return parseInt(a.dataset.stock) - parseInt(b.dataset.stock);
+            case 'stock_desc':
+                return parseInt(b.dataset.stock) - parseInt(a.dataset.stock);
+            case 'value_desc':
+                return parseFloat(b.dataset.value) - parseFloat(a.dataset.value);
+            default:
+                return 0;
+        }
+    });
+
+    rows.forEach(row => tableBody.appendChild(row));
+}
+
+// View switching
+function switchView(view) {
+    const gridView = document.getElementById('gridView');
+    const tableView = document.getElementById('tableView');
+    const gridBtn = document.getElementById('viewGrid');
+    const tableBtn = document.getElementById('viewTable');
+
+    if (view === 'grid') {
+        gridView.style.display = 'block';
+        tableView.style.display = 'none';
+        gridBtn.classList.add('active');
+        tableBtn.classList.remove('active');
+    } else {
+        gridView.style.display = 'none';
+        tableView.style.display = 'block';
+        tableBtn.classList.add('active');
+        gridBtn.classList.remove('active');
+    }
+}
+
+// Inventory management functions
+function quickAdjust(productId, productName, currentStock) {
+    document.getElementById('adjustProductId').value = productId;
+    document.getElementById('adjustProductName').value = productName;
+    document.getElementById('currentStockLevel').value = currentStock;
+    document.getElementById('newStockLevel').value = currentStock;
+
+    const adjustModal = new bootstrap.Modal(document.getElementById('adjustModal'));
+    adjustModal.show();
+}
+
+function quickAdd(amount) {
+    const currentField = document.getElementById('newStockLevel');
+    const newValue = Math.max(0, parseInt(currentField.value) + amount);
+    currentField.value = newValue;
+}
+
+function saveAdjustment() {
+    const productId = document.getElementById('adjustProductId').value;
+    const newStock = document.getElementById('newStockLevel').value;
+    const reason = document.getElementById('adjustReason').value;
+
+    // In a real implementation, this would make an API call
+    alert(`Stock updated for product ${productId}: New level ${newStock} (Reason: ${reason})`);
+
+    const adjustModal = bootstrap.Modal.getInstance(document.getElementById('adjustModal'));
+    adjustModal.hide();
+}
+
+function restock(productId, productName) {
+    document.getElementById('restockProductId').value = productId;
+    document.getElementById('restockProductName').value = productName;
+    document.getElementById('restockQuantity').value = '';
+    document.getElementById('restockCost').value = '';
+    document.getElementById('supplierName').value = '';
+
+    const restockModal = new bootstrap.Modal(document.getElementById('restockModal'));
+    restockModal.show();
+}
+
+function processRestock() {
+    const productId = document.getElementById('restockProductId').value;
+    const quantity = document.getElementById('restockQuantity').value;
+    const cost = document.getElementById('restockCost').value;
+    const supplier = document.getElementById('supplierName').value;
+
+    if (!quantity) {
+        alert('Please enter quantity to restock');
+        return;
+    }
+
+    // In a real implementation, this would make an API call
+    alert(`Restocked ${quantity} units for product ${productId}`);
+
+    const restockModal = bootstrap.Modal.getInstance(document.getElementById('restockModal'));
+    restockModal.hide();
+}
+
+function viewHistory(productId) {
+    alert(`View stock history for product ${productId}`);
+    // Would show stock movement history
+}
+
+function bulkStockUpdate() {
+    alert('Bulk stock update feature - would allow CSV import');
+}
+
+function generateStockReport() {
+    alert('Generate comprehensive stock report');
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-check for low stock items
+    const lowStockItems = document.querySelectorAll('[data-stock]');
+    let lowStockCount = 0;
+
+    lowStockItems.forEach(item => {
+        const stock = parseInt(item.dataset.stock);
+        if (stock <= 10 && stock > 0) {
+            lowStockCount++;
+        }
+    });
+
+    if (lowStockCount > 0) {
+        console.log(`Alert: ${lowStockCount} items are running low on stock`);
+    }
+});
+</script>
+{% endblock %}

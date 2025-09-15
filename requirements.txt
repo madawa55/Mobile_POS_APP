@@ -1,0 +1,9 @@
+Flask>=2.3.3
+Flask-SQLAlchemy>=3.0.5
+Flask-Login>=0.6.3
+Werkzeug>=2.3.7
+python-barcode>=0.14.0
+qrcode>=7.4.2
+Pillow>=10.0.1
+reportlab>=4.0.4
+gunicorn>=20.1.0
