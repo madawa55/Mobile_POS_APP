@@ -121,6 +121,51 @@ class TransactionItem(db.Model):
 
     product = db.relationship('Product', backref='transaction_items')
 
+# Database initialization for newer Flask versions
+def init_db():
+    """Initialize database - called at startup"""
+    with app.app_context():
+        try:
+            db.create_all()
+
+            # Initialize demo data if no businesses exist
+            if Business.query.count() == 0:
+                init_demo_data()
+                print("Demo data initialized!")
+        except Exception as e:
+            print(f"Error initializing database: {e}")
+
+# Initialize database on app creation (for newer Flask versions)
+def create_tables():
+    """Initialize database tables and demo data"""
+    try:
+        with app.app_context():
+            db.create_all()
+
+            # Initialize demo data if no businesses exist
+            if Business.query.count() == 0:
+                init_demo_data()
+                print("Demo data initialized!")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+
+# Hook for first request (compatible with all Flask versions)
+@app.before_request
+def initialize_database():
+    """Initialize database on first request"""
+    if not hasattr(initialize_database, 'initialized'):
+        try:
+            db.create_all()
+            # Initialize demo data if no businesses exist
+            if Business.query.count() == 0:
+                init_demo_data()
+                print("Demo data initialized on first request!")
+        except Exception as e:
+            print(f"Error initializing database: {e}")
+
+        # Mark as initialized to avoid running again
+        initialize_database.initialized = True
+
 # Routes
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -456,7 +501,15 @@ def init_demo_data():
 
     db.session.commit()
 
+# Initialize database when module is imported (for production)
+try:
+    init_db()
+except:
+    # If initialization fails, it will be retried on first request
+    pass
+
 if __name__ == '__main__':
+    # For local development
     with app.app_context():
         db.create_all()
 
