@@ -215,6 +215,8 @@ body {
 @media (max-width: 768px) {
     .pos-container {
         padding: 10px;
+        height: auto;
+        overflow: visible;
     }
 
     .product-card {
@@ -228,6 +230,14 @@ body {
 
     .cart-section {
         margin-top: 20px;
+        max-height: none;
+        position: relative;
+    }
+
+    .cart-items {
+        max-height: 300px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .stat-card {
@@ -237,6 +247,12 @@ body {
     .stat-number {
         font-size: 1.5rem;
     }
+
+    .product-grid {
+        max-height: 50vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
 @media (max-width: 576px) {
@@ -245,11 +261,29 @@ body {
     }
 
     .product-grid {
-        max-height: 60vh;
+        max-height: 45vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .cart-section {
-        max-height: 50vh;
+        max-height: none;
+        position: relative;
+    }
+
+    .cart-items {
+        max-height: 250px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .pos-container .row {
+        margin: 0;
+    }
+
+    .pos-container .col-lg-8,
+    .pos-container .col-lg-4 {
+        padding: 0 10px;
     }
 }
 

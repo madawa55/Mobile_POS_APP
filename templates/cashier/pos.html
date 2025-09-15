@@ -5,19 +5,21 @@
 {% block extra_css %}
 <style>
     .pos-container {
-        height: calc(100vh - 100px);
-        overflow: hidden;
+        height: auto;
+        min-height: calc(100vh - 100px);
+        overflow: visible;
     }
 
     .product-grid {
         max-height: calc(100vh - 150px);
         overflow-y: auto;
         padding-right: 10px;
+        -webkit-overflow-scrolling: touch;
     }
 
     .cart-section {
-        height: calc(100vh - 150px);
-        overflow: hidden;
+        height: auto;
+        min-height: 400px;
         display: flex;
         flex-direction: column;
     }
@@ -26,12 +28,17 @@
         flex: 1;
         overflow-y: auto;
         max-height: 400px;
+        -webkit-overflow-scrolling: touch;
+        padding: 15px;
     }
 
     .cart-footer {
         border-top: 2px solid #dee2e6;
-        padding: 15px 0;
+        padding: 15px;
         background: white;
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
     }
 
     .scanner-section {
@@ -41,6 +48,52 @@
         padding: 20px;
         text-align: center;
         margin-bottom: 20px;
+    }
+
+    /* Mobile specific fixes */
+    @media (max-width: 768px) {
+        .pos-container {
+            padding: 5px;
+        }
+
+        .product-grid {
+            max-height: 50vh;
+            margin-bottom: 20px;
+        }
+
+        .cart-section {
+            position: relative;
+            margin-top: 20px;
+        }
+
+        .cart-items {
+            max-height: 300px;
+            min-height: 200px;
+        }
+
+        .cart-footer {
+            position: relative;
+            margin-top: auto;
+        }
+
+        .scanner-section {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .product-card {
+            margin-bottom: 15px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .cart-items {
+            max-height: 250px;
+        }
+
+        .product-grid {
+            max-height: 40vh;
+        }
     }
 </style>
 {% endblock %}
@@ -119,16 +172,16 @@
                     </h5>
                 </div>
 
-                <div class="card-body p-0">
-                    <div class="cart-items p-3" id="cartItems">
-                        <div class="text-center text-muted py-5">
-                            <i class="fas fa-shopping-cart fa-3x mb-3"></i>
-                            <p>Cart is empty<br><small>Scan or click products to add</small></p>
-                        </div>
+                <!-- Cart Items - Scrollable -->
+                <div class="cart-items" id="cartItems">
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+                        <p>Cart is empty<br><small>Scan or click products to add</small></p>
                     </div>
                 </div>
 
-                <div class="cart-footer p-3">
+                <!-- Cart Footer - Always Visible -->
+                <div class="cart-footer">
                     <div class="cart-total mb-3">
                         <div class="d-flex justify-content-between">
                             <span>Subtotal:</span>
@@ -147,10 +200,10 @@
 
                     <div class="d-grid gap-2">
                         <div class="btn-group" role="group">
-                            <button class="btn btn-success" onclick="processPayment('cash')" id="cashBtn">
+                            <button class="btn btn-success btn-lg" onclick="processPayment('cash')" id="cashBtn">
                                 <i class="fas fa-money-bill me-1"></i>Cash
                             </button>
-                            <button class="btn btn-primary" onclick="processPayment('card')" id="cardBtn">
+                            <button class="btn btn-primary btn-lg" onclick="processPayment('card')" id="cardBtn">
                                 <i class="fas fa-credit-card me-1"></i>Card
                             </button>
                         </div>
