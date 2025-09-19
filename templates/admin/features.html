@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Feature Management - Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-cog me-2"></i>Feature Management</h2>
+    <a href="{{ url_for('add_feature') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>Add Feature
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Feature Name</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th>Requires Activation</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for feature in features %}
+                    <tr>
+                        <td>
+                            <strong>{{ feature.name }}</strong>
+                        </td>
+                        <td>{{ feature.description or 'No description' }}</td>
+                        <td>
+                            {% if feature.is_enabled %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check me-1"></i>Enabled
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times me-1"></i>Disabled
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if feature.requires_activation %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="fas fa-key me-1"></i>Required
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-unlock me-1"></i>Not Required
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ feature.created_at.strftime('%m/%d/%Y') }}</td>
+                        <td>
+                            <a href="{{ url_for('toggle_feature', feature_id=feature.id) }}"
+                               class="btn btn-sm {% if feature.is_enabled %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                               onclick="return confirm('Are you sure you want to {{ 'disable' if feature.is_enabled else 'enable' }} this feature?')">
+                                {% if feature.is_enabled %}
+                                <i class="fas fa-toggle-off me-1"></i>Disable
+                                {% else %}
+                                <i class="fas fa-toggle-on me-1"></i>Enable
+                                {% endif %}
+                            </a>
+                            <a href="{{ url_for('generate_activation_key') }}?feature_id={{ feature.id }}"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-key me-1"></i>Generate Key
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">
+                            <i class="fas fa-info-circle fa-2x mb-2"></i>
+                            <p>No features found. <a href="{{ url_for('add_feature') }}">Add your first feature</a></p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-info-circle text-info me-2"></i>Feature Status
+                </h6>
+                <p class="card-text small">
+                    <strong>Enabled:</strong> Feature is available system-wide<br>
+                    <strong>Disabled:</strong> Feature is not available to any business
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-key text-warning me-2"></i>Activation Requirements
+                </h6>
+                <p class="card-text small">
+                    <strong>Required:</strong> Business needs activation key to use<br>
+                    <strong>Not Required:</strong> Available to all businesses when enabled
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

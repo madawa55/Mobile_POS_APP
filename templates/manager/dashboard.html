@@ -44,11 +44,41 @@
     <!-- Sales Chart -->
     <div class="col-md-8 mb-4">
         <div class="card">
-            <div class="card-header">
-                <h5><i class="fas fa-chart-line me-2"></i>Sales Trend (Last 7 Days)</h5>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-chart-line me-2"></i>Sales Analysis & Forecast</h5>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="chartType" id="lineChart" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary btn-sm" for="lineChart">Line</label>
+
+                    <input type="radio" class="btn-check" name="chartType" id="candleChart" autocomplete="off">
+                    <label class="btn btn-outline-primary btn-sm" for="candleChart">Candle</label>
+                </div>
             </div>
             <div class="card-body">
+                <div id="timeframeControls" class="mb-3" style="display: none;">
+                    <label class="form-label">Timeframe:</label>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="timeframe" id="tf1m" value="1m" autocomplete="off">
+                        <label class="btn btn-outline-secondary btn-sm" for="tf1m">1 Min</label>
+
+                        <input type="radio" class="btn-check" name="timeframe" id="tf5m" value="5m" autocomplete="off">
+                        <label class="btn btn-outline-secondary btn-sm" for="tf5m">5 Min</label>
+
+                        <input type="radio" class="btn-check" name="timeframe" id="tf1d" value="1d" autocomplete="off" checked>
+                        <label class="btn btn-outline-secondary btn-sm" for="tf1d">1 Day</label>
+
+                        <input type="radio" class="btn-check" name="timeframe" id="tf1month" value="1month" autocomplete="off">
+                        <label class="btn btn-outline-secondary btn-sm" for="tf1month">1 Month</label>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="showForecast" checked>
+                        <label class="form-check-label" for="showForecast">
+                            Show Forecast
+                        </label>
+                    </div>
+                </div>
                 <canvas id="salesChart" width="400" height="200"></canvas>
+                <div id="candleChart" style="display: none; height: 400px;"></div>
             </div>
         </div>
     </div>
@@ -73,6 +103,11 @@
                     <a href="{{ url_for('cashier_pos') }}" class="btn btn-info">
                         <i class="fas fa-cash-register me-1"></i>Open POS
                     </a>
+                    {% if is_feature_active('barcode_scanner') %}
+                    <a href="{{ url_for('print_labels') }}" class="btn btn-outline-success">
+                        <i class="fas fa-print me-1"></i>Print Labels
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -142,51 +177,225 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <script>
-// Sales Chart
-fetch('/api/sales-data')
-    .then(response => response.json())
-    .then(data => {
-        const ctx = document.getElementById('salesChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: data.map(item => new Date(item.date).toLocaleDateString()),
-                datasets: [{
-                    label: 'Daily Sales ($)',
-                    data: data.map(item => item.sales),
-                    borderColor: '#667eea',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toFixed(2);
-                            }
-                        }
-                    }
-                }
+let salesChart = null;
+let candleStickChart = null;
+let currentTimeframe = '1d';
+
+// Initialize charts
+function initializeCharts() {
+    // Initialize line chart first
+    loadLineChart();
+
+    // Setup event listeners
+    document.querySelectorAll('input[name="chartType"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.id === 'candleChart') {
+                showCandleChart();
+            } else {
+                showLineChart();
             }
         });
     });
 
-// Auto-refresh stats every 30 seconds
+    document.querySelectorAll('input[name="timeframe"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            currentTimeframe = this.value;
+            if (document.getElementById('candleChart').style.display !== 'none') {
+                loadCandleChart();
+            }
+        });
+    });
+
+    document.getElementById('showForecast').addEventListener('change', function() {
+        if (document.getElementById('candleChart').style.display !== 'none') {
+            loadCandleChart();
+        }
+    });
+}
+
+function showLineChart() {
+    document.getElementById('salesChart').style.display = 'block';
+    document.getElementById('candleChart').style.display = 'none';
+    document.getElementById('timeframeControls').style.display = 'none';
+    loadLineChart();
+}
+
+function showCandleChart() {
+    document.getElementById('salesChart').style.display = 'none';
+    document.getElementById('candleChart').style.display = 'block';
+    document.getElementById('timeframeControls').style.display = 'block';
+    loadCandleChart();
+}
+
+function loadLineChart() {
+    fetch('/api/sales-data')
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+
+            if (salesChart) {
+                salesChart.destroy();
+            }
+
+            salesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(item => new Date(item.date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Daily Sales ($)',
+                        data: data.map(item => item.sales),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+}
+
+function loadCandleChart() {
+    const container = document.getElementById('candleChart');
+    container.innerHTML = '';
+
+    if (candleStickChart) {
+        candleStickChart.remove();
+    }
+
+    candleStickChart = LightweightCharts.createChart(container, {
+        width: container.clientWidth,
+        height: 400,
+        layout: {
+            backgroundColor: '#ffffff',
+            textColor: '#333',
+        },
+        grid: {
+            vertLines: {
+                color: '#f0f0f0',
+            },
+            horzLines: {
+                color: '#f0f0f0',
+            },
+        },
+        crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+        },
+        rightPriceScale: {
+            borderColor: '#cccccc',
+        },
+        timeScale: {
+            borderColor: '#cccccc',
+            timeVisible: currentTimeframe === '1m' || currentTimeframe === '5m',
+            secondsVisible: false,
+        },
+    });
+
+    const candleSeries = candleStickChart.addCandlestickSeries({
+        upColor: '#26a69a',
+        downColor: '#ef5350',
+        borderVisible: false,
+        wickUpColor: '#26a69a',
+        wickDownColor: '#ef5350',
+    });
+
+    // Load historical data
+    fetch(`/api/candle-data?timeframe=${currentTimeframe}`)
+        .then(response => response.json())
+        .then(data => {
+            const candleData = data.map(item => ({
+                time: currentTimeframe === '1m' || currentTimeframe === '5m' ?
+                      item.timestamp : item.timestamp.split(' ')[0],
+                open: item.open,
+                high: item.high,
+                low: item.low,
+                close: item.close
+            }));
+
+            candleSeries.setData(candleData);
+
+            // Add forecast if enabled
+            if (document.getElementById('showForecast').checked) {
+                fetch(`/api/forecast-data?timeframe=${currentTimeframe}`)
+                    .then(response => response.json())
+                    .then(forecast => {
+                        // Add forecast as a different colored candle
+                        const forecastSeries = candleStickChart.addCandlestickSeries({
+                            upColor: 'rgba(255, 152, 0, 0.7)',
+                            downColor: 'rgba(255, 152, 0, 0.7)',
+                            borderVisible: true,
+                            wickUpColor: 'rgba(255, 152, 0, 0.7)',
+                            wickDownColor: 'rgba(255, 152, 0, 0.7)',
+                        });
+
+                        const forecastData = [{
+                            time: currentTimeframe === '1m' || currentTimeframe === '5m' ?
+                                  forecast.timestamp : forecast.timestamp.split(' ')[0],
+                            open: forecast.open,
+                            high: forecast.high,
+                            low: forecast.low,
+                            close: forecast.close
+                        }];
+
+                        forecastSeries.setData(forecastData);
+
+                        // Add forecast label
+                        const markers = [{
+                            time: currentTimeframe === '1m' || currentTimeframe === '5m' ?
+                                  forecast.timestamp : forecast.timestamp.split(' ')[0],
+                            position: 'aboveBar',
+                            color: '#ff9800',
+                            shape: 'arrowDown',
+                            text: 'Forecast'
+                        }];
+
+                        forecastSeries.setMarkers(markers);
+                    });
+            }
+        });
+
+    // Resize chart when window resizes
+    window.addEventListener('resize', () => {
+        if (candleStickChart) {
+            candleStickChart.applyOptions({
+                width: container.clientWidth
+            });
+        }
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+});
+
+// Auto-refresh stats every 30 seconds (only for line chart)
 setInterval(() => {
-    location.reload();
+    if (document.getElementById('lineChart').checked) {
+        loadLineChart();
+    }
 }, 30000);
 </script>
 {% endblock %}

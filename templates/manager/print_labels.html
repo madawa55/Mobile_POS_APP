@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block title %}Print Product Labels{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-print me-2"></i>Print Product Labels</h2>
+    <div>
+        <button class="btn btn-success" onclick="printSelectedLabels()" id="printBtn" disabled>
+            <i class="fas fa-print me-1"></i>Print Selected
+        </button>
+        <button class="btn btn-primary" onclick="selectAll()" id="selectAllBtn">
+            <i class="fas fa-check-square me-1"></i>Select All
+        </button>
+    </div>
+</div>
+
+<!-- Feature Status -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body py-2">
+                <div class="d-flex align-items-center">
+                    <span class="me-3"><strong>Barcode Printing:</strong></span>
+                    <span class="badge bg-{% if is_feature_active('barcode_scanner') %}success{% else %}danger{% endif %}">
+                        <i class="fas fa-{% if is_feature_active('barcode_scanner') %}check{% else %}times{% endif %} me-1"></i>
+                        {% if is_feature_active('barcode_scanner') %}Active{% else %}Not Activated{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Product Selection -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Select Products for Label Printing</h5>
+    </div>
+    <div class="card-body">
+        {% if products %}
+        <div class="row">
+            {% for product in products %}
+            <div class="col-lg-4 col-md-6 mb-3">
+                <div class="card h-100 product-card" data-product-id="{{ product.id }}">
+                    <div class="card-body">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input product-checkbox" type="checkbox"
+                                   value="{{ product.id }}" id="product{{ product.id }}">
+                            <label class="form-check-label" for="product{{ product.id }}">
+                                Select for printing
+                            </label>
+                        </div>
+
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                {% if product.image_url %}
+                                <img src="{{ url_for('static', filename=product.image_url) }}"
+                                     class="img-thumbnail" style="width: 60px; height: 60px; object-fit: cover;">
+                                {% else %}
+                                <div class="bg-light d-flex align-items-center justify-content-center"
+                                     style="width: 60px; height: 60px;">
+                                    <i class="fas fa-box text-muted"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="flex-grow-1">
+                                <h6 class="card-title mb-1">{{ product.name }}</h6>
+                                <p class="card-text small text-muted mb-2">
+                                    <strong>Barcode:</strong> {{ product.barcode }}<br>
+                                    {% if product.category %}
+                                    <strong>Category:</strong> {{ product.category.name }}<br>
+                                    {% endif %}
+                                    <strong>Stock:</strong> {{ product.stock_quantity }}
+                                </p>
+
+                                <div class="pricing-info">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-success fw-bold">${{ "%.2f"|format(product.price) }}</span>
+                                        <span class="text-muted small">Cost: ${{ "%.2f"|format(product.cost) }}</span>
+                                    </div>
+                                    {% set profit = product.price - product.cost %}
+                                    {% set margin = (profit / product.cost * 100) if product.cost > 0 else 0 %}
+                                    <div class="text-primary small">
+                                        Profit: ${{ "%.2f"|format(profit) }} ({{ "%.1f"|format(margin) }}%)
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-sm btn-outline-primary mt-2"
+                                        onclick="previewLabel({{ product.id }})">
+                                    <i class="fas fa-eye me-1"></i>Preview Label
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="fas fa-boxes fa-3x mb-3"></i>
+            <h4>No products available</h4>
+            <p>Add products to your inventory to start printing labels.</p>
+            <a href="{{ url_for('add_product') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Add Product
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Print Preview Area -->
+<div class="card" id="printPreviewCard" style="display: none;">
+    <div class="card-header">
+        <h5 class="mb-0">Label Preview</h5>
+    </div>
+    <div class="card-body">
+        <div id="labelPreviewContainer" class="text-center">
+            <!-- Labels will be displayed here -->
+        </div>
+        <div class="text-center mt-3">
+            <button class="btn btn-success" onclick="printLabels()">
+                <i class="fas fa-print me-1"></i>Print These Labels
+            </button>
+            <button class="btn btn-secondary" onclick="clearPreview()">
+                <i class="fas fa-times me-1"></i>Clear Preview
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h6>Generating Labels...</h6>
+                <p class="small text-muted">Please wait while we create your barcode labels.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedProducts = [];
+let generatedLabels = [];
+
+// Handle checkbox changes
+document.querySelectorAll('.product-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        updateSelectedProducts();
+        updatePrintButton();
+    });
+});
+
+function updateSelectedProducts() {
+    selectedProducts = Array.from(document.querySelectorAll('.product-checkbox:checked'))
+                          .map(cb => parseInt(cb.value));
+}
+
+function updatePrintButton() {
+    const printBtn = document.getElementById('printBtn');
+    printBtn.disabled = selectedProducts.length === 0;
+
+    if (selectedProducts.length > 0) {
+        printBtn.innerHTML = `<i class="fas fa-print me-1"></i>Print Selected (${selectedProducts.length})`;
+    } else {
+        printBtn.innerHTML = '<i class="fas fa-print me-1"></i>Print Selected';
+    }
+}
+
+function selectAll() {
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = !allChecked;
+    });
+
+    updateSelectedProducts();
+    updatePrintButton();
+
+    const btn = document.getElementById('selectAllBtn');
+    if (allChecked) {
+        btn.innerHTML = '<i class="fas fa-check-square me-1"></i>Select All';
+    } else {
+        btn.innerHTML = '<i class="fas fa-square me-1"></i>Deselect All';
+    }
+}
+
+function previewLabel(productId) {
+    showLoading();
+
+    fetch(`/api/generate-barcode-label/${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                displayLabelPreview([data]);
+            } else {
+                alert('Error generating label: ' + data.message);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Error: ' + error.message);
+        });
+}
+
+function printSelectedLabels() {
+    if (selectedProducts.length === 0) {
+        alert('Please select at least one product');
+        return;
+    }
+
+    showLoading();
+
+    fetch('/api/bulk-generate-labels', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            product_ids: selectedProducts
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            generatedLabels = data.labels;
+            displayLabelPreview(data.labels);
+        } else {
+            alert('Error generating labels: ' + data.message);
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        alert('Error: ' + error.message);
+    });
+}
+
+function displayLabelPreview(labels) {
+    const container = document.getElementById('labelPreviewContainer');
+    const previewCard = document.getElementById('printPreviewCard');
+
+    container.innerHTML = '';
+
+    labels.forEach((label, index) => {
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'label-preview mb-3 d-inline-block me-3';
+        labelDiv.style.border = '1px solid #ddd';
+        labelDiv.style.padding = '10px';
+        labelDiv.style.borderRadius = '8px';
+        labelDiv.style.backgroundColor = '#f8f9fa';
+
+        labelDiv.innerHTML = `
+            <div class="text-center">
+                <h6 class="mb-2">${label.product_name}</h6>
+                <img src="${label.image}" class="img-fluid mb-2" style="max-width: 300px;">
+                <p class="small text-muted mb-0">
+                    Price: $${label.price.toFixed(2)} |
+                    Profit: ${label.profit_margin.toFixed(1)}%
+                </p>
+            </div>
+        `;
+
+        container.appendChild(labelDiv);
+    });
+
+    previewCard.style.display = 'block';
+    previewCard.scrollIntoView({ behavior: 'smooth' });
+}
+
+function printLabels() {
+    if (generatedLabels.length === 0) {
+        alert('No labels to print');
+        return;
+    }
+
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+
+    let printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Product Labels</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    padding: 20px;
+                }
+                .label {
+                    display: inline-block;
+                    margin: 10px;
+                    page-break-inside: avoid;
+                    border: 1px solid #ccc;
+                    padding: 5px;
+                }
+                .label img {
+                    max-width: 100%;
+                    height: auto;
+                }
+                @media print {
+                    .label {
+                        margin: 5px;
+                        border: none;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+    `;
+
+    generatedLabels.forEach(label => {
+        printContent += `
+            <div class="label">
+                <img src="${label.image}" alt="${label.product_name}">
+            </div>
+        `;
+    });
+
+    printContent += `
+        </body>
+        </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+
+    // Wait for images to load then print
+    printWindow.onload = function() {
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 500);
+    };
+}
+
+function clearPreview() {
+    document.getElementById('printPreviewCard').style.display = 'none';
+    document.getElementById('labelPreviewContainer').innerHTML = '';
+    generatedLabels = [];
+}
+
+function showLoading() {
+    const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    modal.show();
+}
+
+function hideLoading() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('loadingModal'));
+    if (modal) {
+        modal.hide();
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateSelectedProducts();
+    updatePrintButton();
+});
+</script>
+{% endblock %}

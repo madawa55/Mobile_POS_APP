@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Activation Keys - Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-key me-2"></i>Activation Keys</h2>
+    <a href="{{ url_for('generate_activation_key') }}" class="btn btn-success">
+        <i class="fas fa-plus me-1"></i>Generate Key
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Business</th>
+                        <th>Feature</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Used At</th>
+                        <th>Expires</th>
+                        <th>Key Hash</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, business, feature in keys %}
+                    <tr class="{% if key.is_used %}table-success{% elif key.expires_at and key.expires_at < moment().utcnow() %}table-danger{% endif %}">
+                        <td>
+                            <strong>{{ business.name }}</strong>
+                            <small class="text-muted d-block">{{ business.email }}</small>
+                        </td>
+                        <td>
+                            {% if key.bundle_name %}
+                            <span class="badge bg-success">{{ key.bundle_name }}</span>
+                            <small class="text-muted d-block">
+                                Bundle: {% for f in key.features %}{{ f.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            </small>
+                            {% else %}
+                            <span class="badge bg-primary">{{ feature.name }}</span>
+                            <small class="text-muted d-block">{{ feature.description or 'No description' }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if key.is_used %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check me-1"></i>Used
+                            </span>
+                            {% elif key.expires_at and key.expires_at < moment().utcnow() %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times me-1"></i>Expired
+                            </span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="fas fa-clock me-1"></i>Pending
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ key.created_at.strftime('%m/%d/%Y %H:%M') }}</td>
+                        <td>
+                            {% if key.used_at %}
+                            {{ key.used_at.strftime('%m/%d/%Y %H:%M') }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if key.expires_at %}
+                            {{ key.expires_at.strftime('%m/%d/%Y') }}
+                            {% else %}
+                            <span class="text-muted">Never</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <code class="small">{{ key.key_hash[:8] }}...</code>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            <i class="fas fa-key fa-2x mb-2"></i>
+                            <p>No activation keys found. <a href="{{ url_for('generate_activation_key') }}">Generate your first key</a></p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-check-circle text-success me-2"></i>Used Keys
+                </h6>
+                <p class="card-text small">
+                    Keys that have been successfully activated by businesses
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-clock text-warning me-2"></i>Pending Keys
+                </h6>
+                <p class="card-text small">
+                    Keys that are available for activation but not yet used
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-times-circle text-danger me-2"></i>Expired Keys
+                </h6>
+                <p class="card-text small">
+                    Keys that have passed their expiration date
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

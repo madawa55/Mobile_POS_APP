@@ -37,27 +37,63 @@
                             <i class="fas fa-tachometer-alt me-1"></i>Dashboard
                         </a>
                     </li>
+                    {% if is_feature_active('view_inventory') %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('product_management') }}">
                             <i class="fas fa-boxes me-1"></i>Products
                         </a>
                     </li>
+                    {% endif %}
+                    {% if is_feature_active('stock_management') %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('inventory') }}">
                             <i class="fas fa-warehouse me-1"></i>Inventory
                         </a>
                     </li>
                     {% endif %}
+                    {% endif %}
 
                     {% if current_user.role == 'owner' %}
+                    {% if is_feature_active('sales_reports') %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('owner_dashboard') }}">
                             <i class="fas fa-chart-line me-1"></i>Reports
                         </a>
                     </li>
+                    {% endif %}
+                    {% if is_feature_active('user_management') %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('user_management') }}">
                             <i class="fas fa-users me-1"></i>Users
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('activate_feature') }}">
+                            <i class="fas fa-key me-1"></i>Activate Features
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% if current_user.role == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                            <i class="fas fa-crown me-1"></i>Admin
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_features') }}">
+                            <i class="fas fa-cog me-1"></i>Features
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_activation_keys') }}">
+                            <i class="fas fa-key me-1"></i>Keys
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_businesses') }}">
+                            <i class="fas fa-building me-1"></i>Businesses
                         </a>
                     </li>
                     {% endif %}

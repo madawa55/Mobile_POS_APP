@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Activate Features - {{ current_user.business.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-key me-2"></i>Feature Activation</h2>
+    <div class="text-muted">
+        Business: <strong>{{ current_user.business.name }}</strong>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Active Features</h5>
+            </div>
+            <div class="card-body">
+                {% if activated_features %}
+                <div class="list-group list-group-flush">
+                    {% for business_feature, feature in activated_features %}
+                    <div class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">{{ feature.name.replace('_', ' ').title() }}</div>
+                            <small class="text-muted">{{ feature.description or 'No description available' }}</small>
+                            <br>
+                            <small class="text-success">
+                                <i class="fas fa-calendar me-1"></i>
+                                Activated: {{ business_feature.activated_at.strftime('%B %d, %Y') }}
+                            </small>
+                        </div>
+                        <span class="badge bg-success rounded-pill">
+                            <i class="fas fa-check"></i>
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p>No features activated yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Activate New Feature</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="activation_key" class="form-label">Activation Key</label>
+                        <input type="text" class="form-control" id="activation_key" name="activation_key"
+                               placeholder="Enter your activation key..." required>
+                        <div class="form-text">
+                            Enter the activation key provided by your administrator
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-key me-1"></i>Activate Feature
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-list me-2"></i>Available Features</h6>
+            </div>
+            <div class="card-body">
+                {% if available_features %}
+                <p class="text-muted small mb-2">Features available for activation:</p>
+                <div class="list-group list-group-flush">
+                    {% for feature in available_features %}
+                    {% set is_already_active = false %}
+                    {% for business_feature, active_feature in activated_features %}
+                        {% if active_feature.id == feature.id %}
+                            {% set is_already_active = true %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if not is_already_active %}
+                    <div class="list-group-item">
+                        <div class="fw-bold">{{ feature.name.replace('_', ' ').title() }}</div>
+                        <small class="text-muted">{{ feature.description or 'No description available' }}</small>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted">
+                    <i class="fas fa-info-circle"></i>
+                    <p class="mb-0 small">No features available for activation</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle me-2"></i>How Feature Activation Works</h6>
+            <ol class="mb-0">
+                <li><strong>Get Activation Key:</strong> Contact your system administrator to obtain an activation key for the desired feature</li>
+                <li><strong>Enter Key:</strong> Enter the activation key in the form above</li>
+                <li><strong>Activate:</strong> Click "Activate Feature" to enable the feature for your business</li>
+                <li><strong>Start Using:</strong> The activated feature will be immediately available in your POS system</li>
+            </ol>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-shield-alt text-success me-2"></i>Secure Activation
+                </h6>
+                <p class="card-text small mb-0">
+                    All activation keys are unique, secure, and can only be used once. Each key is tied to your specific business and cannot be shared or reused.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-clock text-warning me-2"></i>Key Expiration
+                </h6>
+                <p class="card-text small mb-0">
+                    Activation keys may have expiration dates. Make sure to use your key before it expires. Contact your administrator if you need a new key.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

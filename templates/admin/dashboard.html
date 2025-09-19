@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - POS System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-crown me-2"></i>Admin Dashboard</h2>
+    <div class="text-muted">
+        <i class="fas fa-user-shield me-1"></i>Super Administrator
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Businesses</h5>
+                        <h2>{{ total_businesses }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-building fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Active Features</h5>
+                        <h2>{{ active_features }}/{{ total_features }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-toggle-on fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Keys</h5>
+                        <h2>{{ total_keys }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-key fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Used Keys</h5>
+                        <h2>{{ used_keys }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Quick Actions</h5>
+                <i class="fas fa-bolt text-primary"></i>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('admin_features') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-cog me-2"></i>Manage Features
+                    </a>
+                    <a href="{{ url_for('generate_activation_key') }}" class="btn btn-outline-success">
+                        <i class="fas fa-key me-2"></i>Generate Activation Key
+                    </a>
+                    <a href="{{ url_for('add_feature') }}" class="btn btn-outline-info">
+                        <i class="fas fa-plus me-2"></i>Add New Feature
+                    </a>
+                    <a href="{{ url_for('admin_businesses') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-building me-2"></i>View All Businesses
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Feature Activations</h5>
+                <i class="fas fa-history text-success"></i>
+            </div>
+            <div class="card-body">
+                {% if recent_activations %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Business</th>
+                                <th>Feature</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activation, business, feature in recent_activations %}
+                            <tr>
+                                <td>{{ business.name }}</td>
+                                <td>{{ feature.name }}</td>
+                                <td>{{ activation.used_at.strftime('%m/%d %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-2">
+                    <a href="{{ url_for('admin_activation_keys') }}" class="btn btn-sm btn-outline-primary">
+                        View All Keys
+                    </a>
+                </div>
+                {% else %}
+                <div class="text-center text-muted">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p>No feature activations yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">System Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Admin Control Panel</h6>
+                    <p class="mb-0">
+                        As an administrator, you have full control over the POS system features. You can:
+                    </p>
+                    <ul class="mt-2 mb-0">
+                        <li>Enable/disable features globally</li>
+                        <li>Generate activation keys for specific businesses</li>
+                        <li>Monitor feature usage across all businesses</li>
+                        <li>Create new features and manage existing ones</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

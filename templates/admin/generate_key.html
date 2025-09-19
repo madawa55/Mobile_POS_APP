@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Activation Key - Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-key me-2"></i>Generate Activation Key</h2>
+    <a href="{{ url_for('admin_activation_keys') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Back to Keys
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Key Generation Form</h5>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" id="preset_basic" class="btn btn-outline-info">
+                        <i class="fas fa-box me-1"></i>Basic Package
+                    </button>
+                    <button type="button" id="preset_complete" class="btn btn-outline-success">
+                        <i class="fas fa-star me-1"></i>Complete Package
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="business_id" class="form-label">Select Business *</label>
+                        <select class="form-select" id="business_id" name="business_id" required>
+                            <option value="">Choose a business...</option>
+                            {% for business in businesses %}
+                            <option value="{{ business.id }}">
+                                {{ business.name }} ({{ business.email }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Features *</label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="selection_type" id="single_feature" value="single" checked>
+                            <label class="form-check-label" for="single_feature">
+                                Single Feature
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="selection_type" id="bundle_features" value="bundle">
+                            <label class="form-check-label" for="bundle_features">
+                                Feature Bundle (Multiple Features)
+                            </label>
+                        </div>
+
+                        <!-- Single Feature Selection -->
+                        <div id="single_feature_section">
+                            <select class="form-select" id="feature_id" name="feature_id">
+                                <option value="">Choose a feature...</option>
+                                {% for feature in features %}
+                                <option value="{{ feature.id }}">
+                                    {{ feature.name }} - {{ feature.description or 'No description' }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Bundle Features Selection -->
+                        <div id="bundle_features_section" style="display: none;">
+                            <div class="mb-3">
+                                <label for="bundle_name" class="form-label">Bundle Name</label>
+                                <input type="text" class="form-control" id="bundle_name" name="bundle_name"
+                                       placeholder="e.g., Complete POS Package, Basic Features, etc.">
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Select Features for Bundle</h6>
+                                </div>
+                                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                                    {% for feature in features %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="feature_ids"
+                                               value="{{ feature.id }}" id="feature_{{ feature.id }}">
+                                        <label class="form-check-label" for="feature_{{ feature.id }}">
+                                            <strong>{{ feature.name }}</strong>
+                                            <br><small class="text-muted">{{ feature.description or 'No description' }}</small>
+                                        </label>
+                                    </div>
+                                    <hr class="my-2">
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-text mt-2">
+                            Only features that require activation keys are shown
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="expires_days" class="form-label">Expiration (Days)</label>
+                        <input type="number" class="form-control" id="expires_days" name="expires_days"
+                               value="365" min="1" max="3650">
+                        <div class="form-text">
+                            Number of days until the key expires (default: 365 days)
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> The activation key will be shown only once after generation.
+                        Make sure to copy it and securely share it with the business owner.
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('admin_activation_keys') }}" class="btn btn-secondary me-md-2">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-key me-1"></i>Generate Key
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-info-circle text-info me-2"></i>About Activation Keys
+                </h6>
+                <ul class="mb-0 small">
+                    <li>Each key is unique and can only be used once</li>
+                    <li>Keys are securely hashed and stored</li>
+                    <li>Business owners use these keys to activate features</li>
+                    <li>Expired keys cannot be used for activation</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-shield-alt text-success me-2"></i>Security Notes
+                </h6>
+                <ul class="mb-0 small">
+                    <li>Keys are generated using cryptographically secure methods</li>
+                    <li>Only the hash is stored in the database</li>
+                    <li>The actual key is shown only at generation time</li>
+                    <li>Keys are tied to specific businesses and features</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const singleFeatureRadio = document.getElementById('single_feature');
+    const bundleFeaturesRadio = document.getElementById('bundle_features');
+    const singleFeatureSection = document.getElementById('single_feature_section');
+    const bundleFeaturesSection = document.getElementById('bundle_features_section');
+    const featureSelect = document.getElementById('feature_id');
+
+    function toggleSections() {
+        if (singleFeatureRadio.checked) {
+            singleFeatureSection.style.display = 'block';
+            bundleFeaturesSection.style.display = 'none';
+            featureSelect.required = true;
+            // Clear bundle selections
+            document.querySelectorAll('input[name="feature_ids"]').forEach(cb => cb.checked = false);
+        } else {
+            singleFeatureSection.style.display = 'none';
+            bundleFeaturesSection.style.display = 'block';
+            featureSelect.required = false;
+            featureSelect.value = '';
+        }
+    }
+
+    singleFeatureRadio.addEventListener('change', toggleSections);
+    bundleFeaturesRadio.addEventListener('change', toggleSections);
+
+    // Preset bundle selections
+    document.getElementById('preset_basic').addEventListener('click', function(e) {
+        e.preventDefault();
+        bundleFeaturesRadio.checked = true;
+        toggleSections();
+        document.getElementById('bundle_name').value = 'Basic POS Package';
+
+        // Select basic features
+        const basicFeatures = ['view_inventory', 'add_product', 'pos_terminal'];
+        document.querySelectorAll('input[name="feature_ids"]').forEach(cb => {
+            const featureName = cb.closest('label').textContent.toLowerCase();
+            cb.checked = basicFeatures.some(basic => featureName.includes(basic.replace('_', ' ')));
+        });
+    });
+
+    document.getElementById('preset_complete').addEventListener('click', function(e) {
+        e.preventDefault();
+        bundleFeaturesRadio.checked = true;
+        toggleSections();
+        document.getElementById('bundle_name').value = 'Complete POS Package';
+
+        // Select all features
+        document.querySelectorAll('input[name="feature_ids"]').forEach(cb => cb.checked = true);
+    });
+
+    // Form validation
+    document.querySelector('form').addEventListener('submit', function(e) {
+        if (bundleFeaturesRadio.checked) {
+            const checkedFeatures = document.querySelectorAll('input[name="feature_ids"]:checked');
+            if (checkedFeatures.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one feature for the bundle.');
+                return false;
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

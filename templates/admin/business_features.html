@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}{{ business.name }} - Features - Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-building me-2"></i>{{ business.name }}</h2>
+        <p class="text-muted mb-0">Feature Management & Activation History</p>
+    </div>
+    <a href="{{ url_for('admin_businesses') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Back to Businesses
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Feature Status</h5>
+                <a href="{{ url_for('generate_activation_key') }}?business_id={{ business.id }}" class="btn btn-sm btn-success">
+                    <i class="fas fa-key me-1"></i>Generate Key
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Feature</th>
+                                <th>Status</th>
+                                <th>Activated</th>
+                                <th>Key Used</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in feature_status %}
+                            <tr>
+                                <td>
+                                    <div>
+                                        <strong>{{ item.feature.name.replace('_', ' ').title() }}</strong>
+                                        <br><small class="text-muted">{{ item.feature.description or 'No description' }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if not item.feature.is_enabled %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-ban me-1"></i>Globally Disabled
+                                    </span>
+                                    {% elif item.is_active %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>Active
+                                    </span>
+                                    {% elif not item.feature.requires_activation %}
+                                    <span class="badge bg-info">
+                                        <i class="fas fa-unlock me-1"></i>Available
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-lock me-1"></i>Needs Activation
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item.business_feature and item.business_feature.activated_at %}
+                                    <span class="text-success">
+                                        {{ item.business_feature.activated_at.strftime('%m/%d/%Y %H:%M') }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item.activation_key %}
+                                    <code class="small">{{ item.activation_key.key_hash[:8] }}...</code>
+                                    {% if item.activation_key.bundle_name %}
+                                    <br><small class="text-info">{{ item.activation_key.bundle_name }}</small>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Feature Summary</h5>
+            </div>
+            <div class="card-body">
+                {% set active_count = feature_status|selectattr('is_active')|list|length %}
+                {% set available_count = feature_status|selectattr('feature.requires_activation', 'equalto', false)|list|length %}
+                {% set total_count = feature_status|length %}
+
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="text-success">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                            <div class="mt-2">
+                                <strong>{{ active_count }}</strong>
+                                <br><small>Active</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-info">
+                            <i class="fas fa-unlock fa-2x"></i>
+                            <div class="mt-2">
+                                <strong>{{ available_count }}</strong>
+                                <br><small>Available</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-warning">
+                            <i class="fas fa-lock fa-2x"></i>
+                            <div class="mt-2">
+                                <strong>{{ total_count - active_count - available_count }}</strong>
+                                <br><small>Locked</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">Activation History</h5>
+            </div>
+            <div class="card-body">
+                {% if activation_keys %}
+                <div style="max-height: 400px; overflow-y: auto;">
+                    {% for key in activation_keys %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                {% if key.bundle_name %}
+                                <strong class="text-primary">{{ key.bundle_name }}</strong>
+                                <br><small class="text-muted">
+                                    {% for feature in key.features %}
+                                    {{ feature.name }}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </small>
+                                {% elif key.feature %}
+                                <strong>{{ key.feature.name }}</strong>
+                                {% else %}
+                                <strong class="text-muted">Unknown Feature</strong>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                {% if key.is_used %}
+                                <span class="badge bg-success">Used</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">Pending</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            Created: {{ key.created_at.strftime('%m/%d/%Y') }}
+                            {% if key.is_used and key.used_at %}
+                            | Used: {{ key.used_at.strftime('%m/%d/%Y') }}
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p>No activation keys generated yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle me-2"></i>Feature Management</h6>
+            <ul class="mb-0">
+                <li><strong>Active:</strong> Feature is activated and available for this business</li>
+                <li><strong>Available:</strong> Feature doesn't require activation and is ready to use</li>
+                <li><strong>Needs Activation:</strong> Feature requires an activation key to be used</li>
+                <li><strong>Globally Disabled:</strong> Feature is disabled system-wide by admin</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
